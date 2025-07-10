@@ -1,0 +1,12 @@
+# browser-use 函式庫本身
+browser-use
+
+# 用於讀取 .env 檔案
+python-dotenv
+
+# Azure OpenAI 和 OpenAI 相容 API
+openai
+
+# API 服務相關
+fastapi
+uvicorn 

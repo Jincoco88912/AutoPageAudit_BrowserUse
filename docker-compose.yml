@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  browser_agent:
+    build: .
+    container_name: km-browser-use-agent
+    # 將 .env 檔案中的所有變數掛載為容器的環境變數
+    # 這是最安全、最推薦的作法
+    env_file:
+      - .env
+    # 為了讓 Playwright 在 Docker 中穩定運行，建議增加共享記憶體大小
+    shm_size: '2gb'
+    # 將當前目錄掛載到容器的 /app，方便您修改程式碼後不用重新 build image
+    volumes:
+      - .:/app
+    # 將主機的 8080 port 映射到容器的 8080 port
+    ports:
+      - "8080:8080" 
