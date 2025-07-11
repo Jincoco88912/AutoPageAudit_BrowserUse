@@ -40,6 +40,29 @@ class AgentTaskRequest(BaseModel):
     callback_timeout: int = Field(30, description="回調請求超時時間（秒）")
     callback_retries: int = Field(3, description="回調重試次數")
 
+def serialize_result(obj):
+    """
+    將複雜對象序列化為可JSON化的格式
+    """
+    if hasattr(obj, '__dict__'):
+        # 對於有__dict__屬性的對象，轉換為字典
+        result = {}
+        for key, value in obj.__dict__.items():
+            result[key] = serialize_result(value)
+        return result
+    elif isinstance(obj, list):
+        # 對於列表，遞歸處理每個元素
+        return [serialize_result(item) for item in obj]
+    elif isinstance(obj, dict):
+        # 對於字典，遞歸處理每個值
+        return {key: serialize_result(value) for key, value in obj.items()}
+    elif isinstance(obj, (str, int, float, bool, type(None))):
+        # 基本類型直接返回
+        return obj
+    else:
+        # 其他類型轉換為字符串
+        return str(obj)
+
 async def send_callback(callback_url: str, data: dict, timeout: int = 30, max_retries: int = 3):
     """
     發送回調請求到指定URL
@@ -160,7 +183,7 @@ async def run_agent_task(request: AgentTaskRequest):
             response_data = {
                 "status": "success", 
                 "task": request.task, 
-                "result": result,
+                "result": serialize_result(result),
                 "attempt": attempt + 1,
                 "config_used": {
                     "stealth": request.use_stealth,
@@ -172,12 +195,12 @@ async def run_agent_task(request: AgentTaskRequest):
             
             # 發送回調（如果有指定URL）
             if request.callback_url:
-                asyncio.create_task(send_callback(
+                await send_callback(
                     request.callback_url, 
                     response_data,
                     request.callback_timeout,
                     request.callback_retries
-                ))
+                )
             
             return response_data
             
@@ -200,12 +223,12 @@ async def run_agent_task(request: AgentTaskRequest):
                 
                 # 發送錯誤回調（如果有指定URL）
                 if request.callback_url:
-                    asyncio.create_task(send_callback(
+                    await send_callback(
                         request.callback_url, 
                         response_data,
                         request.callback_timeout,
                         request.callback_retries
-                    ))
+                    )
                 
                 return response_data
 
