@@ -9,4 +9,17 @@ openai
 
 # API 服務相關
 fastapi
-uvicorn 
+uvicorn
+
+
+
+# 代理和網路相關
+requests
+aiohttp
+
+# 圖像處理（用於驗證碼識別）
+# Pillow
+# opencv-python
+
+# 隨機 User-Agent 生成
+fake-useragent 

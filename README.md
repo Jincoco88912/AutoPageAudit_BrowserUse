@@ -9,6 +9,10 @@
 - 🐳 Docker 容器化部署，最小化環境配置
 - 🔌 RESTful API 介面，方便整合
 - 🎯 支援複雜的瀏覽器任務執行
+- 🛡️ **強化反檢測功能** - 避免被 reCAPTCHA 阻擋
+- 🤖 **人類行為模擬** - 模擬真實用戶操作
+- 🌐 **代理支援** - 支援住宅代理輪換
+- 🔄 **自動重試機制** - 智能處理失敗情況
 
 ## 快速開始
 
@@ -52,15 +56,316 @@ curl http://localhost:8080/
 ```
 
 #### 執行瀏覽器任務
+
+**基本任務執行：**
 ```bash
 curl -X POST "http://localhost:8080/api/run-agent" \
      -H "Content-Type: application/json" \
      -d '{"task": "Compare the price of gpt-4o and DeepSeek-V3"}'
 ```
 
+**使用反檢測功能：**
+```bash
+curl -X POST "http://localhost:8080/api/run-agent" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "task": "搜尋最新的 iPhone 價格並比較不同電商",
+       "use_stealth": true,
+       "headless": false,
+       "delay_range": [2, 5],
+       "max_retries": 3
+     }'
+```
+
+
+
 ## API 文檔
 
 啟動服務後，您可以在 http://localhost:8080/docs 查看自動生成的 API 文檔。
+
+### 📚 詳細文檔
+
+- **[反檢測和 reCAPTCHA 解決方案指南](ANTI_DETECTION_GUIDE.md)** - 詳細的反檢測配置和使用指南
+- **[API 文檔](http://localhost:8080/docs)** - 自動生成的 API 文檔（服務啟動後可用）
+
+## 📊 API 回應格式
+
+### ✅ 成功執行時的回應結構
+
+```json
+{
+  "status": "success",
+  "task": "您提交的原始任務描述",
+  "result": {
+    "screenshot": "iVBORw0KGgo...（Base64 編碼的PNG截圖）",
+    "interacted_element": [
+      {
+        "tag_name": "input",
+        "xpath": "html/body/div/input",
+        "attributes": {
+          "class": "search-box",
+          "placeholder": "請輸入搜尋關鍵字"
+        }
+      }
+    ],
+    "url": "https://example.com/search",
+    "title": "搜尋結果頁面",
+    "metadata": {
+      "step_start_time": 1752197349.6582184,
+      "step_end_time": 1752197359.6553552,
+      "step_number": 13
+    }
+  },
+  "attempt": 1,
+  "config_used": {
+    "stealth": true,
+    "proxy": false,
+    "headless": false
+  }
+}
+```
+
+### ❌ 失敗時的回應結構
+
+```json
+{
+  "status": "error",
+  "message": "具體錯誤訊息",
+  "attempts": 3,
+  "suggestion": "建議檢查網路連線、代理設定或增加延遲時間"
+}
+```
+
+### 📋 欄位說明
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| `status` | string | 執行狀態：`"success"` 或 `"error"` |
+| `task` | string | 您提交的原始任務描述 |
+| `result` | object | AI 代理的執行結果（詳見下表） |
+| `attempt` | number | 成功的嘗試次數（1-3） |
+| `config_used` | object | 實際使用的配置參數 |
+
+### 🎯 Result 陣列詳細說明
+
+`result` 是一個**陣列**，包含 AI 執行過程中每個步驟的詳細記錄：
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| `result[i].screenshot` | string | 該步驟的頁面截圖 Base64 編碼（PNG 格式） |
+| `result[i].interacted_element` | array | 該步驟中互動的頁面元素詳情 |
+| `result[i].url` | string | 該步驟中的頁面 URL |
+| `result[i].title` | string | 該步驟中的頁面標題 |
+| `result[i].metadata` | object | 該步驟的執行時間和步驟編號 |
+
+**重要：** 陣列中的每個物件代表一個執行步驟，包含該步驟的完整狀態快照。
+
+### 💡 實際使用範例
+
+#### 範例 1：搜尋任務
+
+**請求：**
+```bash
+curl -X POST "http://localhost:8080/api/run-agent" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "task": "在雄獅旅遊搜尋大阪旅遊行程",
+       "use_stealth": true
+     }'
+```
+
+**回應：**
+```json
+{
+  "status": "success",
+  "task": "在雄獅旅遊搜尋大阪旅遊行程",
+  "result": {
+    "screenshot": "iVBORw0KGgo...（完整的頁面截圖）",
+    "interacted_element": [
+      {
+        "tag_name": "input",
+        "attributes": {
+          "class": "search-input",
+          "placeholder": "請輸入目的地"
+        }
+      }
+    ],
+    "url": "https://travel.liontravel.com/search?Keywords=大阪",
+    "title": "旅遊行程搜尋| 雄獅旅遊",
+    "metadata": {
+      "step_number": 13,
+      "step_start_time": 1752197349.66,
+      "step_end_time": 1752197359.66
+    }
+  },
+  "attempt": 1,
+  "config_used": {
+    "stealth": true,
+    "proxy": false,
+    "headless": false
+  }
+}
+```
+
+#### 範例 2：多頁面操作任務
+
+**請求：**
+```bash
+curl -X POST "http://localhost:8080/api/run-agent" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "task": "在 momo 購物網搜尋 iPhone 15，然後點擊第一個商品查看詳細資訊",
+       "use_stealth": true,
+       "delay_range": [2, 4]
+     }'
+```
+
+**回應：**
+```json
+{
+  "status": "success",
+  "task": "在 momo 購物網搜尋 iPhone 15，然後點擊第一個商品查看詳細資訊",
+  "result": [
+    {
+      "screenshot": "iVBORw0KGgo...（momo首頁截圖）",
+      "interacted_element": [null],
+      "url": "https://www.momoshop.com.tw",
+      "title": "momo購物網",
+      "metadata": {
+        "step_start_time": 1752197825.123,
+        "step_end_time": 1752197827.456,
+        "step_number": 1
+      }
+    },
+    {
+      "screenshot": "iVBORw0KGgo...（輸入搜尋關鍵字後的截圖）",
+      "interacted_element": [
+        {
+          "tag_name": "input",
+          "xpath": "html/body/div[1]/header/div/div[2]/div/input",
+          "attributes": {
+            "class": "searchTextBox",
+            "placeholder": "搜尋商品"
+          }
+        }
+      ],
+      "url": "https://www.momoshop.com.tw",
+      "title": "momo購物網",
+      "metadata": {
+        "step_start_time": 1752197827.456,
+        "step_end_time": 1752197829.789,
+        "step_number": 2
+      }
+    },
+    {
+      "screenshot": "iVBORw0KGgo...（搜尋結果頁面截圖）",
+      "interacted_element": [
+        {
+          "tag_name": "button",
+          "xpath": "html/body/div[1]/header/div/div[2]/div/button",
+          "attributes": {
+            "class": "searchBtn",
+            "type": "submit"
+          }
+        }
+      ],
+      "url": "https://www.momoshop.com.tw/search/searchShop.jsp?keyword=iPhone%2015",
+      "title": "iPhone 15 - momo購物網",
+      "metadata": {
+        "step_start_time": 1752197829.789,
+        "step_end_time": 1752197833.012,
+        "step_number": 3
+      }
+    },
+    {
+      "screenshot": "iVBORw0KGgo...（商品詳細頁面截圖）",
+      "interacted_element": [
+        {
+          "tag_name": "a",
+          "xpath": "html/body/div[3]/div[2]/div[1]/ul/li[1]/div/div[2]/h3/a",
+          "attributes": {
+            "class": "goodsName",
+            "href": "/goods/GoodsDetail.jsp?i_code=10963583"
+          }
+        }
+      ],
+      "url": "https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=10963583",
+      "title": "Apple iPhone 15 128GB 藍色 - momo購物網",
+      "metadata": {
+        "step_start_time": 1752197833.012,
+        "step_end_time": 1752197841.456,
+        "step_number": 4
+      }
+    }
+  ],
+  "attempt": 1,
+  "config_used": {
+    "stealth": true,
+    "proxy": false,
+    "headless": false
+  }
+}
+```
+
+#### 範例 3：遇到錯誤
+
+**回應：**
+```json
+{
+  "status": "error",
+  "message": "Connection timeout after 30 seconds",
+  "attempts": 3,
+  "suggestion": "建議檢查網路連線、代理設定或增加延遲時間"
+}
+```
+
+### 🖼️ 如何查看截圖
+
+截圖以 Base64 格式編碼，您可以：
+
+1. **使用線上工具**：將 Base64 字串貼到 https://base64.guru/converter/decode/image
+2. **直接在瀏覽器查看**：
+   ```html
+   <img src="data:image/png;base64,您的Base64字串" />
+   ```
+3. **使用命令行**：
+   ```bash
+   echo "您的Base64字串" | base64 -d > screenshot.png
+   ```
+
+### 📈 提取特定資訊
+
+```bash
+# 檢查執行狀態
+curl -s -X POST "http://localhost:8080/api/run-agent" \
+     -H "Content-Type: application/json" \
+     -d '{"task": "您的任務"}' | jq -r '.status'
+
+# 取得最終步驟的 URL
+curl -s -X POST "http://localhost:8080/api/run-agent" \
+     -H "Content-Type: application/json" \
+     -d '{"task": "您的任務"}' | jq -r '.result[-1].url'
+
+# 取得最終步驟的頁面標題
+curl -s -X POST "http://localhost:8080/api/run-agent" \
+     -H "Content-Type: application/json" \
+     -d '{"task": "您的任務"}' | jq -r '.result[-1].title'
+
+# 取得所有步驟的 URL
+curl -s -X POST "http://localhost:8080/api/run-agent" \
+     -H "Content-Type: application/json" \
+     -d '{"task": "您的任務"}' | jq -r '.result[].url'
+
+# 計算總執行步驟數
+curl -s -X POST "http://localhost:8080/api/run-agent" \
+     -H "Content-Type: application/json" \
+     -d '{"task": "您的任務"}' | jq '.result | length'
+
+# 取得第一步的截圖（儲存為檔案）
+curl -s -X POST "http://localhost:8080/api/run-agent" \
+     -H "Content-Type: application/json" \
+     -d '{"task": "您的任務"}' | jq -r '.result[0].screenshot' | base64 -d > step1.png
+```
 
 ## 本地開發
 
@@ -109,6 +414,15 @@ AutoPageAudit_BrowserUse/
 - Docker 容器會自動安裝 Playwright 及其瀏覽器依賴
 - 建議分配足夠的共享記憶體（shm_size: 2gb）以確保瀏覽器穩定運行
 - 確保您的 Azure OpenAI 服務有足夠的配額
+
+### 🛡️ 反檢測功能說明
+
+- **預設啟用隱身模式**：自動隱藏瀏覽器自動化特徵
+- **建議使用有頭模式**：`headless: false` 可大幅提高成功率
+- **代理支援**：可配置住宅代理避免 IP 封鎖
+- **合規使用**：請遵守目標網站的使用條款和相關法規
+
+詳細配置請參考 [反檢測指南](ANTI_DETECTION_GUIDE.md)。
 
 ## 故障排除
 
