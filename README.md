@@ -424,6 +424,85 @@ AutoPageAudit_BrowserUse/
 
 詳細配置請參考 [反檢測指南](ANTI_DETECTION_GUIDE.md)。
 
+## 🔄 Webhook 回調功能
+
+AutoPageAudit_BrowserUse 支援 webhook 回調功能，讓您可以在瀏覽器任務完成後自動接收結果。
+
+### 快速使用
+
+```bash
+curl -X POST "http://localhost:8080/api/run-agent" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "task": "搜尋商品資訊",
+       "callback_url": "https://your-server.com/webhook",
+       "use_stealth": true
+     }'
+```
+
+### 新增參數
+
+| 參數 | 類型 | 說明 | 預設值 |
+|------|------|------|--------|
+| `callback_url` | string | 任務完成後回調的 URL | `null` |
+| `callback_timeout` | int | 回調請求超時時間（秒） | `30` |
+| `callback_retries` | int | 回調重試次數 | `3` |
+
+### 回調數據格式
+
+**成功時：**
+```json
+{
+  "status": "success",
+  "task": "您的任務描述",
+  "result": [...],  // 完整的執行結果陣列
+  "timestamp": 1704649200.123
+}
+```
+
+**失敗時：**
+```json
+{
+  "status": "error", 
+  "message": "錯誤原因",
+  "attempts": 3,
+  "timestamp": 1704649200.123
+}
+```
+
+### 回調伺服器範例
+
+#### Node.js Express
+```javascript
+app.post('/webhook', (req, res) => {
+  const { status, result } = req.body;
+  console.log(`任務狀態: ${status}`);
+  if (status === 'success') {
+    // 處理成功結果
+    result.forEach(step => console.log(step.url));
+  }
+  res.json({ received: true });
+});
+```
+
+#### Python Flask
+```python
+@app.route('/webhook', methods=['POST'])
+def handle_callback():
+    data = request.get_json()
+    print(f"任務狀態: {data['status']}")
+    if data['status'] == 'success':
+        # 處理成功結果
+        for step in data['result']:
+            print(step['url'])
+    return {"received": True}
+```
+
+### 🔗 詳細說明
+
+完整的 webhook 功能說明、安全建議和整合範例請參考：
+📋 **[Webhook 回調功能使用指南](webhook_example.md)**
+
 ## 故障排除
 
 ### 如果遇到 Playwright 安裝問題

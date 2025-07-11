@@ -16,10 +16,14 @@ uvicorn
 # 代理和網路相關
 requests
 aiohttp
+httpx
 
 # 圖像處理（用於驗證碼識別）
 # Pillow
 # opencv-python
 
 # 隨機 User-Agent 生成
-fake-useragent 
+fake-useragent
+
+# 測試依賴（可選）
+flask 
