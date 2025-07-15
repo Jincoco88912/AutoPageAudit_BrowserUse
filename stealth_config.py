@@ -25,8 +25,8 @@ class StealthConfig:
     
     @staticmethod
     def get_stealth_args() -> List[str]:
-        """獲取隱身瀏覽器參數"""
-        return [
+        """獲取隱身瀏覽器參數，包含 Docker 環境優化"""
+        base_args = [
             '--no-sandbox',
             '--disable-blink-features=AutomationControlled',
             '--disable-web-security',
@@ -53,8 +53,37 @@ class StealthConfig:
             '--use-fake-device-for-media-stream',
             '--use-fake-ui-for-media-stream',
             '--mute-audio',
+            # Docker 環境特殊參數
+            '--disable-setuid-sandbox',
+            '--disable-accelerated-2d-canvas',
+            '--disable-accelerated-jpeg-decoding',
+            '--disable-accelerated-mjpeg-decode',
+            '--disable-accelerated-video-decode',
+            '--disable-gpu-sandbox',
+            '--disable-software-rasterizer',
+            '--disable-background-networking',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--hide-scrollbars',
+            '--disable-translate',
+            '--disable-logging',
+            '--disable-permissions-api',
+            '--single-process',  # 重要：單進程模式，在 Docker 中更穩定
+            '--max_old_space_size=4096',  # 增加內存限制
             f'--user-agent={StealthConfig.get_random_user_agent()}'
         ]
+        
+        # 檢查是否在 Docker 環境中運行
+        import os
+        if os.path.exists('/.dockerenv') or os.environ.get('DOCKER_ENV'):
+            # Docker 專用參數
+            base_args.extend([
+                '--remote-debugging-address=0.0.0.0',
+                '--remote-debugging-port=9222',
+                '--virtual-time-budget=5000'
+            ])
+        
+        return base_args
     
     @staticmethod
     def get_browser_config(headless: bool = False) -> Dict:

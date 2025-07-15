@@ -236,4 +236,4 @@ async def run_agent_task(request: AgentTaskRequest):
 
 # 如果您想直接運行這個 API 檔案
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080) 
+    uvicorn.run(app, host="0.0.0.0", port=8808) 

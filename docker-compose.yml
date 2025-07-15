@@ -8,11 +8,28 @@ services:
     # 這是最安全、最推薦的作法
     env_file:
       - .env
+    environment:
+      - DOCKER_ENV=true
+      - DISPLAY=:99
+      - PYTHONUNBUFFERED=1
     # 為了讓 Playwright 在 Docker 中穩定運行，建議增加共享記憶體大小
     shm_size: '2gb'
+    # 添加必要的權限和安全選項
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_ADMIN
     # 將當前目錄掛載到容器的 /app，方便您修改程式碼後不用重新 build image
     volumes:
       - .:/app
-    # 將主機的 8080 port 映射到容器的 8080 port
+      - /dev/shm:/dev/shm
+    # 將主機的端口映射到容器，包括調試端口
     ports:
-      - "1139:8080" 
+      - "1139:8080"
+      - "9222:9222"  # Chrome 調試端口
+    # 健康檢查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3 
